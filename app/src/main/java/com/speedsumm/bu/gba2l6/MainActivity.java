@@ -1,10 +1,12 @@
 package com.speedsumm.bu.gba2l6;
 
+import android.Manifest;
 import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
@@ -12,6 +14,8 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Environment;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -34,6 +38,9 @@ public class MainActivity extends AppCompatActivity {
     BluetoothAdapter bluetoothAdapter;
     ArrayList<BluetoothDevice> btDevices;
     BroadcastReceiver mBroadcastReceiver;
+    public ArrayList<String> needPermitionsList;
+    final private int REQUEST_CODE_ASK_MULTIPLE_PERMISSIONS = 124;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,26 +49,27 @@ public class MainActivity extends AppCompatActivity {
         tvLog = (TextView) findViewById(R.id.tvLog);
         btDevices = new ArrayList<BluetoothDevice>();
         mBroadcastReceiver = new BluetoothReceiver();
+        needPermitionsList = new ArrayList<>();
 
-        tvLog.append("Проверяем необходимые разрешения\n\n");
-
-        if (ActivityCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED) {
-
-        } else {
-            tvLog.append("Разрешения SMS отсутвуют.\n\n Запрашиваем разерешения.\n\n");
-            ActivityCompat.requestPermissions(MainActivity.this, new String[]{android.Manifest.permission.READ_SMS}, 1);
+        permitionNeed(needPermitionsList, Manifest.permission.READ_SMS);
+        permitionNeed(needPermitionsList, Manifest.permission.ACCESS_COARSE_LOCATION);
+        if (needPermitionsList.size() > 0) {
+            ActivityCompat.requestPermissions(this, needPermitionsList.toArray(new String[needPermitionsList.size()]), REQUEST_CODE_ASK_MULTIPLE_PERMISSIONS);
         }
-        if (ActivityCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+    }
 
-        } else {
-            tvLog.append("Разрешения BLUETOOTH отсутвуют.\n\n Запрашиваем разерешения.\n\n");
-            ActivityCompat.requestPermissions(MainActivity.this, new String[]{android.Manifest.permission.ACCESS_COARSE_LOCATION}, 2);
+
+    private void permitionNeed(ArrayList<String> needPermitions, String checkPermission) {
+        if (ActivityCompat.checkSelfPermission(MainActivity.this, checkPermission) != PackageManager.PERMISSION_GRANTED) {
+            needPermitions.add(checkPermission);
         }
+
     }
 
     public void OnClick(View view) {
         switch (view.getId()) {
             case R.id.btnSMSREader:
+
                 Uri uri = Uri.parse("content://sms");
                 cursor = getContentResolver().query(uri, null, null, null, null);
                 File path = new File(this.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "SMS");
@@ -86,6 +94,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 break;
             case R.id.btnBluetoothListener:
+
                 btDevices.clear();
                 bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
                 if (!bluetoothAdapter.isEnabled()) {
@@ -100,14 +109,14 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onStop() {
-        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-        registerReceiver(mBroadcastReceiver, filter);
+        unregisterReceiver(mBroadcastReceiver);
         super.onStop();
     }
 
     @Override
     protected void onStart() {
-        unregisterReceiver(mBroadcastReceiver);
+        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+        registerReceiver(mBroadcastReceiver, filter);
         super.onStart();
     }
 
