@@ -32,13 +32,16 @@ public class MainActivity extends AppCompatActivity {
     TextView tvLog;
     BluetoothAdapter bluetoothAdapter;
     ArrayList<BluetoothDevice> btDevices;
-   ProgressDialog progressDialog  ;
+   ProgressDialog progressDialog;
+    BroadcastReceiver mBroadcastReceiver;
+    BroadcastReceiver mPowerReceiver;
 
 
 
     @Override
     protected void onDestroy() {
         unregisterReceiver(mBroadcastReceiver);
+        unregisterReceiver(mPowerReceiver);
         super.onDestroy();
     }
 
@@ -48,9 +51,12 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         tvLog = (TextView) findViewById(R.id.tvLog);
         btDevices = new ArrayList<BluetoothDevice>();
+        mBroadcastReceiver = new BluetoothReceiver();
+        mPowerReceiver = new PowerReceiver();
 
-
+        IntentFilter filter1 = new IntentFilter((Intent.ACTION_POWER_CONNECTED));
         IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+        registerReceiver(mPowerReceiver,filter1);
         registerReceiver(mBroadcastReceiver, filter);
 
 
@@ -63,12 +69,6 @@ public class MainActivity extends AppCompatActivity {
             ActivityCompat.requestPermissions(MainActivity.this, new String[]{android.Manifest.permission.READ_SMS}, 1);
         }
 
-        if (ActivityCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.BLUETOOTH_ADMIN) == PackageManager.PERMISSION_GRANTED) {
-
-        } else {
-            tvLog.append("Разрешения BLUETOOTH отсутвуют.\n\n Запрашиваем разерешения.\n\n");
-            ActivityCompat.requestPermissions(MainActivity.this, new String[]{android.Manifest.permission.BLUETOOTH_ADMIN}, 1);
-        }
     }
 
     public void OnClick(View view) {
@@ -102,6 +102,10 @@ public class MainActivity extends AppCompatActivity {
             case R.id.btnBluetoothListener:
 
                 bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+                if (!bluetoothAdapter.isEnabled()) {
+                    Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                    startActivityForResult(enableBtIntent, 1);
+                }
                 progressDialog = ProgressDialog.show(this, "Поиск устройств", "Подождите...",true);
                 boolean result = bluetoothAdapter.startDiscovery();
                 Log.d("Результат сканирования",String.valueOf(result));
@@ -118,7 +122,9 @@ public class MainActivity extends AppCompatActivity {
 
         }
     }
-    private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
+    public  class BluetoothReceiver extends BroadcastReceiver{
+
+//    private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
@@ -130,5 +136,12 @@ public class MainActivity extends AppCompatActivity {
 
             }
         }
-    };
+    }
+    public  class PowerReceiver extends BroadcastReceiver{
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            tvLog.append("POWER CONNECTED\n");
+        }
+    }
 }
