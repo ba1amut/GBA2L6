@@ -24,6 +24,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -32,18 +33,7 @@ public class MainActivity extends AppCompatActivity {
     TextView tvLog;
     BluetoothAdapter bluetoothAdapter;
     ArrayList<BluetoothDevice> btDevices;
-   ProgressDialog progressDialog;
     BroadcastReceiver mBroadcastReceiver;
-    BroadcastReceiver mPowerReceiver;
-
-
-
-    @Override
-    protected void onDestroy() {
-        unregisterReceiver(mBroadcastReceiver);
-        unregisterReceiver(mPowerReceiver);
-        super.onDestroy();
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,13 +42,6 @@ public class MainActivity extends AppCompatActivity {
         tvLog = (TextView) findViewById(R.id.tvLog);
         btDevices = new ArrayList<BluetoothDevice>();
         mBroadcastReceiver = new BluetoothReceiver();
-        mPowerReceiver = new PowerReceiver();
-
-        IntentFilter filter1 = new IntentFilter((Intent.ACTION_POWER_CONNECTED));
-        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-        registerReceiver(mPowerReceiver,filter1);
-        registerReceiver(mBroadcastReceiver, filter);
-
 
         tvLog.append("Проверяем необходимые разрешения\n\n");
 
@@ -68,16 +51,19 @@ public class MainActivity extends AppCompatActivity {
             tvLog.append("Разрешения SMS отсутвуют.\n\n Запрашиваем разерешения.\n\n");
             ActivityCompat.requestPermissions(MainActivity.this, new String[]{android.Manifest.permission.READ_SMS}, 1);
         }
+        if (ActivityCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
 
+        } else {
+            tvLog.append("Разрешения BLUETOOTH отсутвуют.\n\n Запрашиваем разерешения.\n\n");
+            ActivityCompat.requestPermissions(MainActivity.this, new String[]{android.Manifest.permission.ACCESS_COARSE_LOCATION}, 2);
+        }
     }
 
     public void OnClick(View view) {
         switch (view.getId()) {
             case R.id.btnSMSREader:
                 Uri uri = Uri.parse("content://sms");
-
                 cursor = getContentResolver().query(uri, null, null, null, null);
-
                 File path = new File(this.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "SMS");
                 path.mkdir();
                 tvLog.append("Создаем каталог " + path + "\n\n");
@@ -100,48 +86,41 @@ public class MainActivity extends AppCompatActivity {
                 }
                 break;
             case R.id.btnBluetoothListener:
-
+                btDevices.clear();
                 bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
                 if (!bluetoothAdapter.isEnabled()) {
                     Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
                     startActivityForResult(enableBtIntent, 1);
                 }
-                progressDialog = ProgressDialog.show(this, "Поиск устройств", "Подождите...",true);
                 boolean result = bluetoothAdapter.startDiscovery();
-                Log.d("Результат сканирования",String.valueOf(result));
-                progressDialog.dismiss();
-
-//                btDevices = bluetoothAdapter.getBondedDevices();
+                Log.d("Результат сканирования", String.valueOf(result));
                 tvLog.setText("");
-
-                for (BluetoothDevice btDevice : btDevices) {
-                    Log.d("...", btDevice.getName() + "," + btDevice.getType());
-                    tvLog.append(btDevice.getName() + "," + btDevice.getType() + "\n");
-
-                }
-
         }
     }
-    public  class BluetoothReceiver extends BroadcastReceiver{
 
-//    private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
+    @Override
+    protected void onStop() {
+        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+        registerReceiver(mBroadcastReceiver, filter);
+        super.onStop();
+    }
+
+    @Override
+    protected void onStart() {
+        unregisterReceiver(mBroadcastReceiver);
+        super.onStart();
+    }
+
+    public class BluetoothReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (BluetoothDevice.ACTION_FOUND.equals(action)) {
                 BluetoothDevice btDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                Log.d("...","Обнаружено устройство"+btDevice.getName());
+                Log.d("...", "Обнаружено устройство" + btDevice.getName());
                 btDevices.add(btDevice);
-
-
+                tvLog.append(btDevice.getName() + "," + btDevice.getType() + "\n");
             }
-        }
-    }
-    public  class PowerReceiver extends BroadcastReceiver{
-
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            tvLog.append("POWER CONNECTED\n");
         }
     }
 }
